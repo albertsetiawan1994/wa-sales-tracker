@@ -4,3 +4,7 @@ dist-electron/
 release/
 .env
 *.local
+.agent/
+.agents/
+.superpowers/
+skills-lock.json
