@@ -1,12 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { computeSlaStatus, isGroupJid, extractPhoneNumber } from '../src/whatsapp/status-engine.js';
+import {
+  computeSlaStatus,
+  isGroupJid,
+  isValidDirectChatJid,
+  extractPhoneNumber,
+} from '../src/whatsapp/status-engine.js';
 
 describe('Task 3: Conversational SLA Detection & Message Utilities', () => {
   const baseNow = new Date('2026-11-20T12:00:00Z');
 
-  it('identifies group chats vs individual 1-on-1 chats', () => {
+  it('identifies valid 1-on-1 direct chats vs groups/broadcasts/channels', () => {
+    expect(isValidDirectChatJid('628123456789@s.whatsapp.net')).toBe(true);
+    expect(isValidDirectChatJid('12345678-987654@g.us')).toBe(false); // Groups
+    expect(isValidDirectChatJid('status@broadcast')).toBe(false); // Status stories
+    expect(isValidDirectChatJid('1234567890@newsletter')).toBe(false); // Channels
     expect(isGroupJid('12345678-987654@g.us')).toBe(true);
-    expect(isGroupJid('628123456789@s.whatsapp.net')).toBe(false);
   });
 
   it('extracts clean phone number from jid', () => {

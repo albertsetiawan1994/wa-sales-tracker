@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { WhatsAppConnectionState, Contact } from '../types.js';
+import { getStoredPin } from '../api.js';
 
 interface UseSocketOptions {
   onContactUpdated?: (contact: Contact) => void;
@@ -14,10 +15,26 @@ export function useSocket(options?: UseSocketOptions) {
   });
 
   const connect = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    let wsUrl: string;
+    const baseApi = import.meta.env.VITE_API_URL;
+    const pin = getStoredPin();
+    const pinParam = pin ? `?pin=${encodeURIComponent(pin)}` : '';
 
-    const ws = new WebSocket(wsUrl);
+    if (baseApi) {
+      const parsed = new URL(baseApi);
+      const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${wsProtocol}//${parsed.host}/ws${pinParam}`;
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}/ws${pinParam}`;
+    }
+
+    let ws: WebSocket | null = null;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch {
+      return () => {};
+    }
 
     ws.onmessage = (event) => {
       try {
@@ -54,7 +71,9 @@ export function useSocket(options?: UseSocketOptions) {
     };
 
     return () => {
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
     };
   }, [options]);
 

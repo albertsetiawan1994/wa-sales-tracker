@@ -38,48 +38,9 @@ export interface QuickReplyRow {
   created_at: string;
 }
 
-export interface Database {
-  public: {
-    Tables: {
-      baileys_auth_store: {
-        Row: {
-          id: string;
-          session_data: any;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          session_data: any;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          session_data?: any;
-          updated_at?: string;
-        };
-      };
-      contacts: {
-        Row: ContactRow;
-        Insert: Partial<ContactRow> & { jid: string; phone_number: string };
-        Update: Partial<ContactRow>;
-      };
-      follow_up_reminders: {
-        Row: FollowUpReminderRow;
-        Insert: Partial<FollowUpReminderRow> & { contact_jid: string; scheduled_at: string };
-        Update: Partial<FollowUpReminderRow>;
-      };
-      quick_replies: {
-        Row: QuickReplyRow;
-        Insert: Partial<QuickReplyRow> & { title: string; template_text: string };
-        Update: Partial<QuickReplyRow>;
-      };
-    };
-  };
-}
+let supabaseInstance: SupabaseClient<any> | null = null;
 
-let supabaseInstance: SupabaseClient<Database> | null = null;
-
-export function getSupabaseClient(): SupabaseClient<Database> {
+export function getSupabaseClient(): SupabaseClient<any> {
   if (supabaseInstance) {
     return supabaseInstance;
   }
@@ -87,7 +48,7 @@ export function getSupabaseClient(): SupabaseClient<Database> {
   const supabaseUrl = process.env.SUPABASE_URL || 'https://mock-supabase.supabase.co';
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'mock-key';
 
-  supabaseInstance = createClient<Database>(supabaseUrl, supabaseKey, {
+  supabaseInstance = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
   });
 

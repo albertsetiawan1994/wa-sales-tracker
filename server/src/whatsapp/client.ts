@@ -6,7 +6,7 @@ import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import { getSupabaseClient } from '../db/supabase.js';
 import { useSupabaseAuthState } from '../db/auth-store.js';
-import { isGroupJid, extractPhoneNumber } from './status-engine.js';
+import { isValidDirectChatJid, extractPhoneNumber } from './status-engine.js';
 
 export interface WhatsAppEvents {
   onQrCode: (qr: string) => void;
@@ -25,6 +25,7 @@ let socketInstance: WASocket | null = null;
 let currentQr: string | null = null;
 let currentStatus: 'connecting' | 'connected' | 'disconnected' = 'disconnected';
 let currentUserPhone: string | null = null;
+let isReconnecting = false;
 
 export function getWhatsAppState() {
   return {
@@ -53,7 +54,7 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket> {
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', (update) => {
+  sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
@@ -67,11 +68,22 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket> {
       currentUserPhone = null;
       events.onStatusChange('disconnected');
 
-      const shouldReconnect =
-        (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+      const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut;
 
-      if (shouldReconnect) {
+      if (isLoggedOut) {
+        // Clear stale revoked auth from Supabase so fresh QR code can be generated
+        try {
+          await supabase.from('baileys_auth_store').delete().neq('id', '');
+        } catch {}
+      }
+
+      const shouldReconnect = !isLoggedOut;
+
+      if (shouldReconnect && !isReconnecting) {
+        isReconnecting = true;
         setTimeout(() => {
+          isReconnecting = false;
           initWhatsApp(events).catch(() => {});
         }, 5000);
       }
@@ -89,8 +101,8 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket> {
 
     for (const msg of m.messages) {
       const jid = msg.key.remoteJid;
-      if (!jid || isGroupJid(jid)) {
-        // Strictly ignore WhatsApp group chats for personal number isolation
+      if (!jid || !isValidDirectChatJid(jid)) {
+        // Strictly ignore groups (@g.us), status stories (status@broadcast), and channels (@newsletter)
         continue;
       }
 

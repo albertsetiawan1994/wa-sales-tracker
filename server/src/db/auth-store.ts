@@ -50,13 +50,27 @@ export async function useSupabaseAuthState(
           ids: string[]
         ): Promise<{ [key: string]: SignalDataTypeMap[T] }> => {
           const data: { [key: string]: SignalDataTypeMap[T] } = {};
-          for (const id of ids) {
-            const keyId = `${type}-${id}`;
-            const value = await readData(keyId);
-            if (value) {
-              data[id] = value;
+          if (ids.length === 0) return data;
+
+          const keyIds = ids.map((id) => `${type}-${id}`);
+
+          try {
+            // Batch read from Supabase in a single query
+            const { data: rows } = await supabase
+              .from('baileys_auth_store')
+              .select('id, session_data')
+              .in('id', keyIds);
+
+            if (rows) {
+              for (const row of rows) {
+                const rawId = row.id.replace(`${type}-`, '');
+                data[rawId] = JSON.parse(JSON.stringify(row.session_data), BufferJSON.reviver);
+              }
             }
+          } catch {
+            // Fallback
           }
+
           return data;
         },
         set: async (data: any): Promise<void> => {

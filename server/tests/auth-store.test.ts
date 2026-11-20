@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Task 2: Supabase Baileys Auth Store Adapter', () => {
   it('useSupabaseAuthState loads credentials and manages keys in supabase', async () => {
@@ -10,7 +10,7 @@ describe('Task 2: Supabase Baileys Auth Store Adapter', () => {
       from: (table: string) => {
         expect(table).toBe('baileys_auth_store');
         return {
-          select: () => ({
+          select: (cols?: string) => ({
             eq: (_col: string, val: string) => ({
               single: async () => {
                 if (mockStorage[val]) {
@@ -19,6 +19,12 @@ describe('Task 2: Supabase Baileys Auth Store Adapter', () => {
                 return { data: null, error: { message: 'Not found' } };
               },
             }),
+            in: async (_col: string, vals: string[]) => {
+              const rows = vals
+                .filter((v) => mockStorage[v] !== undefined)
+                .map((v) => ({ id: v, session_data: mockStorage[v] }));
+              return { data: rows, error: null };
+            },
           }),
           upsert: async (records: any) => {
             const arr = Array.isArray(records) ? records : [records];
@@ -32,6 +38,9 @@ describe('Task 2: Supabase Baileys Auth Store Adapter', () => {
               for (const id of ids) {
                 delete mockStorage[id];
               }
+              return { error: null };
+            },
+            neq: async () => {
               return { error: null };
             },
           }),

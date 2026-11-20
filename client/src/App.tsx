@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSocket } from './hooks/useSocket.js';
 import { useContacts } from './hooks/useContacts.js';
 import { HeaderBar } from './components/HeaderBar.js';
@@ -14,6 +14,7 @@ import { Contact, QuickReply, PipelineStage } from './types.js';
 
 export default function App() {
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'kanban' | 'table' | 'triage'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMasked, setIsMasked] = useState(false);
@@ -26,7 +27,6 @@ export default function App() {
   // Customer contacts
   const {
     contacts: customers,
-    loading: loadingCustomers,
     error: customerError,
     refresh: refreshCustomers,
     updateContact: updateCustomer,
@@ -36,11 +36,13 @@ export default function App() {
   // Triage contacts (is_customer === false)
   const {
     contacts: triageContacts,
-    loading: loadingTriage,
     refresh: refreshTriage,
     updateContact: updateTriage,
     handleSocketContactUpdate: handleTriageSocketUpdate,
   } = useContacts(false);
+
+  // Debounced message received handler to prevent refetch storms
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Real-time WebSocket connection
   const { connectionState } = useSocket({
@@ -49,16 +51,29 @@ export default function App() {
       handleTriageSocketUpdate(contact);
     },
     onMessageReceived: () => {
-      refreshCustomers();
-      refreshTriage();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        refreshCustomers();
+        refreshTriage();
+      }, 500);
     },
   });
 
-  // Check initial PIN
+  // Check initial PIN and listen for auth error events
   useEffect(() => {
     if (getStoredPin()) {
       setIsUnlocked(true);
     }
+
+    const handleAuthRequired = (e: any) => {
+      setIsUnlocked(false);
+      setAuthError(e.detail || 'PIN salah atau sesi kedaluwarsa');
+    };
+
+    window.addEventListener('auth_required', handleAuthRequired);
+    return () => window.removeEventListener('auth_required', handleAuthRequired);
   }, []);
 
   // Fetch quick reply templates
@@ -77,7 +92,7 @@ export default function App() {
     refreshTriage();
   };
 
-  // Ignore / hide contact in Triage
+  // Ignore / hide contact in Triage (sets stage to 'lost' to remove from queue)
   const handleIgnoreContact = async (jid: string) => {
     await updateTriage(jid, { is_customer: false, pipeline_stage: 'lost' });
     refreshTriage();
@@ -118,8 +133,20 @@ export default function App() {
     );
   });
 
+  const activeTriageCount = triageContacts.filter((c) => c.pipeline_stage !== 'lost').length;
+
   if (!isUnlocked) {
-    return <PinLockModal onUnlock={() => setIsUnlocked(true)} error={customerError} />;
+    return (
+      <PinLockModal
+        onUnlock={() => {
+          setIsUnlocked(true);
+          setAuthError(null);
+          refreshCustomers();
+          refreshTriage();
+        }}
+        error={authError || customerError}
+      />
+    );
   }
 
   return (
@@ -127,7 +154,7 @@ export default function App() {
       {/* Top Header */}
       <HeaderBar
         contacts={customers}
-        triageCount={triageContacts.length}
+        triageCount={activeTriageCount}
         currentView={currentView}
         onViewChange={setCurrentView}
         searchQuery={searchQuery}
@@ -175,14 +202,17 @@ export default function App() {
         )}
       </main>
 
-      {/* Lead Detail Drawer */}
-      <LeadDetailDrawer
-        contact={selectedContact}
-        onClose={() => setSelectedContact(null)}
-        onUpdate={handleUpdateContactDetails}
-        onAddReminder={handleAddReminder}
-        isMasked={isMasked}
-      />
+      {/* Lead Detail Drawer - keyed by contact JID to prevent stale state */}
+      {selectedContact && (
+        <LeadDetailDrawer
+          key={selectedContact.jid}
+          contact={selectedContact}
+          onClose={() => setSelectedContact(null)}
+          onUpdate={handleUpdateContactDetails}
+          onAddReminder={handleAddReminder}
+          isMasked={isMasked}
+        />
+      )}
 
       {/* Quick Reply Drawer */}
       {isQuickRepliesOpen && (

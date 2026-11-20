@@ -7,6 +7,12 @@ export function isGroupJid(jid: string): boolean {
   return jid.endsWith('@g.us');
 }
 
+export function isValidDirectChatJid(jid: string): boolean {
+  // Only individual direct 1-on-1 chats are tracked.
+  // Excludes groups (@g.us), status stories (status@broadcast), and channels (@newsletter).
+  return jid.endsWith('@s.whatsapp.net');
+}
+
 export function extractPhoneNumber(jidOrPhone: string): string {
   const cleaned = jidOrPhone.split('@')[0];
   return cleaned.replace(/\D/g, '');

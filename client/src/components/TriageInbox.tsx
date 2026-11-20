@@ -14,6 +14,9 @@ export function TriageInbox({ contacts, onPromote, onIgnore, isMasked }: TriageI
   const [processingJid, setProcessingJid] = useState<string | null>(null);
 
   const filtered = contacts.filter((c) => {
+    // Exclude ignored / dismissed personal contacts
+    if (c.pipeline_stage === 'lost') return false;
+
     if (!search.trim()) return true;
     const s = search.toLowerCase();
     return (
