@@ -1,0 +1,19 @@
+name: whatsapp-sales-tracker-server
+type: web
+env:
+  - key: PORT
+    value: "3000"
+  - key: NODE_ENV
+    value: "production"
+ports:
+  - port: 3000
+    path: /
+routes:
+  - path: /
+    port: 3000
+regions:
+  - fra # or was (Washington, DC)
+instance_type: nano # Koyeb Hobby Free Plan (512MB RAM, 0.1 vCPU)
+scalings:
+  min: 1
+  max: 1
