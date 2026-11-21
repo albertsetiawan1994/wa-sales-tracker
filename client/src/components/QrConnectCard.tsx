@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { QrCode, CheckCircle, Smartphone, AlertCircle, RefreshCw } from 'lucide-react';
+import { QrCode, CheckCircle, Smartphone, AlertCircle, RefreshCw, LogOut } from 'lucide-react';
 import { WhatsAppConnectionState } from '../types.js';
 
 interface QrConnectCardProps {
   connectionState: WhatsAppConnectionState;
   onRefresh?: () => Promise<void> | void;
+  onLogout?: () => Promise<void> | void;
 }
 
-export function QrConnectCard({ connectionState, onRefresh }: QrConnectCardProps) {
+export function QrConnectCard({ connectionState, onRefresh, onLogout }: QrConnectCardProps) {
   const { status, qrCode, userPhone, lastError } = connectionState;
   const [isBusy, setIsBusy] = useState(false);
 
@@ -22,11 +23,26 @@ export function QrConnectCard({ connectionState, onRefresh }: QrConnectCardProps
     }
   };
 
+  const handleLogoutClick = async () => {
+    if (!onLogout) return;
+    const confirm = window.confirm(
+      'Apakah Anda yakin ingin memutuskan nomor WhatsApp yang sedang terhubung dan memindai nomor baru?'
+    );
+    if (!confirm) return;
+
+    setIsBusy(true);
+    try {
+      await onLogout();
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   if (status === 'connected') {
     return (
-      <div className="bg-slate-800/80 border border-emerald-500/30 rounded-xl p-4 flex items-center justify-between shadow-lg backdrop-blur">
+      <div className="bg-slate-800/80 border border-emerald-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
             <CheckCircle className="w-5 h-5" />
           </div>
           <div>
@@ -39,6 +55,18 @@ export function QrConnectCard({ connectionState, onRefresh }: QrConnectCardProps
             </p>
           </div>
         </div>
+
+        {onLogout && (
+          <button
+            onClick={handleLogoutClick}
+            disabled={isBusy}
+            className="text-xs bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 self-start sm:self-center disabled:opacity-50"
+            title="Putus koneksi nomor ini dan pindai nomor baru"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>{isBusy ? 'Memutuskan...' : 'Putus Koneksi / Ganti Nomor'}</span>
+          </button>
+        )}
       </div>
     );
   }

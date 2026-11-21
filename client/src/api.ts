@@ -47,6 +47,12 @@ export async function triggerReconnect(): Promise<void> {
   } catch {}
 }
 
+export async function logoutWhatsAppSession(): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/logout`, { method: 'POST', headers: getHeaders() });
+  } catch {}
+}
+
 export async function fetchContacts(params?: {
   is_customer?: boolean;
   pipeline_stage?: string;

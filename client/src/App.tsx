@@ -16,6 +16,7 @@ import {
   getStoredPin,
   fetchConnectionStatus,
   triggerReconnect,
+  logoutWhatsAppSession,
 } from './api.js';
 import { Contact, QuickReply, PipelineStage } from './types.js';
 
@@ -224,6 +225,18 @@ export default function App() {
             } catch {}
             refreshCustomers();
             refreshTriage();
+          }}
+          onLogout={async () => {
+            await logoutWhatsAppSession();
+            setConnectionState({
+              status: 'connecting',
+              qrCode: null,
+              userPhone: null,
+            });
+            try {
+              const state = await fetchConnectionStatus();
+              setConnectionState(state);
+            } catch {}
           }}
         />
 

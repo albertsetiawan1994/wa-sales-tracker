@@ -13,7 +13,7 @@ import { createAuthMiddleware } from './routes/auth.js';
 import { contactsRouter } from './routes/contacts.js';
 import { templatesRouter } from './routes/templates.js';
 import { initWebSocketServer, broadcastEvent } from './ws/gateway.js';
-import { initWhatsApp, getWhatsAppState, restartWhatsApp } from './whatsapp/client.js';
+import { initWhatsApp, getWhatsAppState, restartWhatsApp, logoutWhatsApp } from './whatsapp/client.js';
 
 dotenv.config();
 
@@ -27,7 +27,7 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
-    version: '1.0.3',
+    version: '1.0.4',
     timestamp: new Date().toISOString(),
   });
 });
@@ -39,6 +39,15 @@ app.get('/api/status', (_req, res) => {
 app.post('/api/reconnect', async (_req, res) => {
   try {
     await restartWhatsApp();
+    res.json({ ok: true, state: getWhatsAppState() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/logout', async (_req, res) => {
+  try {
+    await logoutWhatsApp();
     res.json({ ok: true, state: getWhatsAppState() });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
