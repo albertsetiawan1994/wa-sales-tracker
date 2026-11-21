@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
-import { UserCheck, UserX, Inbox, MessageSquare, Phone, Search, CheckCircle2 } from 'lucide-react';
+import { UserCheck, UserX, MessageSquare, Search, CheckCircle2, RotateCcw, Filter } from 'lucide-react';
 import { Contact } from '../types.js';
 
 interface TriageInboxProps {
   contacts: Contact[];
   onPromote: (jid: string) => Promise<void>;
   onIgnore: (jid: string) => Promise<void>;
+  onRestore?: (jid: string) => Promise<void>;
   isMasked?: boolean;
 }
 
-export function TriageInbox({ contacts, onPromote, onIgnore, isMasked }: TriageInboxProps) {
+export function TriageInbox({ contacts, onPromote, onIgnore, onRestore, isMasked }: TriageInboxProps) {
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'pending' | 'ignored'>('pending');
   const [processingJid, setProcessingJid] = useState<string | null>(null);
 
+  const pendingCount = contacts.filter((c) => c.pipeline_stage !== 'lost').length;
+  const ignoredCount = contacts.filter((c) => c.pipeline_stage === 'lost').length;
+
   const filtered = contacts.filter((c) => {
-    // Exclude ignored / dismissed personal contacts
-    if (c.pipeline_stage === 'lost') return false;
+    if (activeTab === 'pending' && c.pipeline_stage === 'lost') return false;
+    if (activeTab === 'ignored' && c.pipeline_stage !== 'lost') return false;
 
     if (!search.trim()) return true;
     const s = search.toLowerCase();
@@ -45,6 +50,16 @@ export function TriageInbox({ contacts, onPromote, onIgnore, isMasked }: TriageI
     }
   };
 
+  const handleRestore = async (jid: string) => {
+    if (!onRestore) return;
+    try {
+      setProcessingJid(jid);
+      await onRestore(jid);
+    } finally {
+      setProcessingJid(null);
+    }
+  };
+
   const maskString = (str: string) => {
     if (!isMasked || !str) return str;
     return str.substring(0, 3) + '••••' + str.slice(-2);
@@ -56,33 +71,68 @@ export function TriageInbox({ contacts, onPromote, onIgnore, isMasked }: TriageI
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-white">Kotak Masuk Triage (Chat Pribadi / Baru)</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              {filtered.length} Perlu Ditinjau
-            </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Pisahkan chat pelanggan bisnis dari kontak keluarga/teman pribadi dengan 1 klik.
           </p>
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Cari nomor atau nama..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-          />
+        <div className="flex items-center gap-3">
+          {/* Tab selector */}
+          <div className="flex bg-slate-900/90 p-1 rounded-xl border border-slate-700">
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                activeTab === 'pending'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>Perlu Ditinjau</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeTab === 'pending' ? 'bg-emerald-800 text-emerald-200' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {pendingCount}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('ignored')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                activeTab === 'ignored'
+                  ? 'bg-slate-700 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>Diabaikan / Pribadi</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-800 text-slate-400">
+                {ignoredCount}
+              </span>
+            </button>
+          </div>
+
+          <div className="relative w-full sm:w-56">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Cari nomor atau nama..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+            />
+          </div>
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
           <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-emerald-500/40" />
-          <p className="text-sm font-semibold text-slate-300">Semua chat telah ditinjau!</p>
+          <p className="text-sm font-semibold text-slate-300">
+            {activeTab === 'pending' ? 'Semua chat telah ditinjau!' : 'Tidak ada kontak di daftar abaikan.'}
+          </p>
           <p className="text-xs text-slate-500 mt-1">
-            Tidak ada pesan baru yang belum dikategorikan. Chat pelanggan aktif dapat dipantau di Papan Kanban.
+            {activeTab === 'pending'
+              ? 'Tidak ada pesan baru yang belum dikategorikan. Chat pelanggan aktif dapat dipantau di Papan Kanban.'
+              : 'Kontak pribadi yang Anda abaikan akan muncul di sini dan dapat dipulihkan kapan saja.'}
           </p>
         </div>
       ) : (
@@ -104,6 +154,11 @@ export function TriageInbox({ contacts, onPromote, onIgnore, isMasked }: TriageI
                     <span className="text-xs text-slate-400 font-mono">
                       +{isMasked ? maskString(contact.phone_number) : contact.phone_number}
                     </span>
+                    {contact.pipeline_stage === 'lost' && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-700 text-slate-400">
+                        Diabaikan
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-xs text-slate-300 mt-1 line-clamp-2 max-w-xl">
@@ -128,14 +183,26 @@ export function TriageInbox({ contacts, onPromote, onIgnore, isMasked }: TriageI
                   <UserCheck className="w-3.5 h-3.5" />
                   + Jadikan Pelanggan
                 </button>
-                <button
-                  disabled={processingJid === contact.jid}
-                  onClick={() => handleIgnore(contact.jid)}
-                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition disabled:opacity-50"
-                >
-                  <UserX className="w-3.5 h-3.5" />
-                  Abaikan (Pribadi)
-                </button>
+
+                {activeTab === 'pending' ? (
+                  <button
+                    disabled={processingJid === contact.jid}
+                    onClick={() => handleIgnore(contact.jid)}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition disabled:opacity-50"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    Abaikan (Pribadi)
+                  </button>
+                ) : (
+                  <button
+                    disabled={processingJid === contact.jid}
+                    onClick={() => handleRestore(contact.jid)}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-emerald-400 rounded-lg text-xs font-medium flex items-center gap-1.5 transition disabled:opacity-50"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Pulihkan ke Triage
+                  </button>
+                )}
               </div>
             </div>
           ))}

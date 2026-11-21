@@ -21,8 +21,11 @@ contactsRouter.get('/', async (req: Request, res: Response) => {
     }
 
     if (search) {
-      const s = String(search);
-      query = query.or(`name.ilike.%${s}%,phone_number.ilike.%${s}%,push_name.ilike.%${s}%`);
+      // Sanitize special characters that interfere with PostgREST .or() syntax
+      const sanitized = String(search).replace(/[,()[\]{}"\\]/g, ' ').trim();
+      if (sanitized) {
+        query = query.or(`name.ilike.%${sanitized}%,phone_number.ilike.%${sanitized}%,push_name.ilike.%${sanitized}%`);
+      }
     }
 
     const { data, error } = await query;

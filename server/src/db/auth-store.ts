@@ -74,19 +74,32 @@ export async function useSupabaseAuthState(
           return data;
         },
         set: async (data: any): Promise<void> => {
-          const tasks: Promise<void>[] = [];
+          const rowsToUpsert: { id: string; session_data: any; updated_at: string }[] = [];
+          const idsToDelete: string[] = [];
+
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id];
               const keyId = `${category}-${id}`;
               if (value) {
-                tasks.push(writeData(keyId, value));
+                const serialized = JSON.parse(JSON.stringify(value, BufferJSON.replacer));
+                rowsToUpsert.push({
+                  id: keyId,
+                  session_data: serialized,
+                  updated_at: new Date().toISOString(),
+                });
               } else {
-                tasks.push(removeData([keyId]));
+                idsToDelete.push(keyId);
               }
             }
           }
-          await Promise.all(tasks);
+
+          if (rowsToUpsert.length > 0) {
+            await supabase.from('baileys_auth_store').upsert(rowsToUpsert);
+          }
+          if (idsToDelete.length > 0) {
+            await supabase.from('baileys_auth_store').delete().in('id', idsToDelete);
+          }
         },
       },
     },

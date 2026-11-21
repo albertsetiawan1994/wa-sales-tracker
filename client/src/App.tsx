@@ -140,6 +140,12 @@ export default function App() {
     refreshTriage();
   };
 
+  // Restore ignored contact back to active Triage queue
+  const handleRestoreContact = async (jid: string) => {
+    await updateTriage(jid, { is_customer: false, pipeline_stage: 'lead_baru' });
+    refreshTriage();
+  };
+
   // Move stage in Kanban
   const handleMoveStage = async (jid: string, newStage: PipelineStage) => {
     await updateCustomer(jid, { pipeline_stage: newStage });
@@ -244,6 +250,7 @@ export default function App() {
             contacts={triageContacts}
             onPromote={handlePromoteContact}
             onIgnore={handleIgnoreContact}
+            onRestore={handleRestoreContact}
             isMasked={isMasked}
           />
         )}

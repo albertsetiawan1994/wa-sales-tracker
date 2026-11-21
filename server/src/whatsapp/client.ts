@@ -139,11 +139,24 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket | n
         }
 
         const fromMe = Boolean(msg.key.fromMe);
-        const text =
-          msg.message?.conversation ||
-          msg.message?.extendedTextMessage?.text ||
-          msg.message?.imageMessage?.caption ||
+        const mObj = msg.message;
+        let text =
+          mObj?.conversation ||
+          mObj?.extendedTextMessage?.text ||
+          mObj?.imageMessage?.caption ||
+          mObj?.videoMessage?.caption ||
+          mObj?.documentMessage?.caption ||
           '';
+
+        if (!text) {
+          if (mObj?.imageMessage) text = '📷 [Gambar]';
+          else if (mObj?.videoMessage) text = '🎬 [Video]';
+          else if (mObj?.audioMessage) text = '🎵 [Pesan Suara]';
+          else if (mObj?.documentMessage) text = `📄 [Dokumen: ${mObj.documentMessage.fileName || 'Berkas'}]`;
+          else if (mObj?.stickerMessage) text = '🎨 [Stiker]';
+          else if (mObj?.locationMessage) text = '📍 [Lokasi]';
+          else if (mObj?.contactMessage) text = '👤 [Kontak]';
+        }
 
         const timestamp = new Date((Number(msg.messageTimestamp) || Date.now() / 1000) * 1000).toISOString();
         const senderNumber = extractPhoneNumber(jid);
@@ -153,9 +166,11 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket | n
         try {
           const { data: existing } = await supabase
             .from('contacts')
-            .select('is_customer, name')
+            .select('is_customer, name, last_message_text')
             .eq('jid', jid)
             .single();
+
+          const finalMessageText = text || existing?.last_message_text || null;
 
           await supabase.from('contacts').upsert({
             jid,
@@ -164,7 +179,7 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket | n
             name: existing?.name || pushName || senderNumber,
             is_customer: existing?.is_customer ?? false, // Default to FALSE (triage)
             is_group: false,
-            last_message_text: text || null,
+            last_message_text: finalMessageText,
             last_message_at: timestamp,
             last_sender_is_me: fromMe,
             updated_at: new Date().toISOString(),
