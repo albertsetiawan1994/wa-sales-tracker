@@ -19,6 +19,7 @@ describe('Task 3: Conversational SLA Detection & Message Utilities', () => {
 
   it('extracts clean phone number from jid', () => {
     expect(extractPhoneNumber('628123456789@s.whatsapp.net')).toBe('628123456789');
+    expect(extractPhoneNumber('6282183338882:24@s.whatsapp.net')).toBe('6282183338882');
     expect(extractPhoneNumber('+62 812-3456-7890')).toBe('6281234567890');
   });
 

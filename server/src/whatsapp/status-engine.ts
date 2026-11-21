@@ -14,8 +14,10 @@ export function isValidDirectChatJid(jid: string): boolean {
 }
 
 export function extractPhoneNumber(jidOrPhone: string): string {
-  const cleaned = jidOrPhone.split('@')[0];
-  return cleaned.replace(/\D/g, '');
+  // Strip domain @s.whatsapp.net, then strip device suffix :24 or :25
+  const withoutDomain = jidOrPhone.split('@')[0];
+  const phoneOnly = withoutDomain.split(':')[0];
+  return phoneOnly.replace(/\D/g, '');
 }
 
 export function computeSlaStatus(
