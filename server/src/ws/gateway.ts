@@ -57,6 +57,18 @@ export function initWebSocketServer(server: Server): WebSocketServer {
     });
   });
 
+  // Keep-alive ping interval to prevent Cloudflare/Render 60s idle disconnect
+  setInterval(() => {
+    for (const ws of clients) {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.ping();
+          ws.send(JSON.stringify({ type: 'ping' }));
+        } catch {}
+      }
+    }
+  }, 25000);
+
   return wss;
 }
 

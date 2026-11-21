@@ -75,6 +75,14 @@ export function useSocket(options?: UseSocketOptions) {
           case 'message_received':
             optionsRef.current?.onMessageReceived?.(payload.data);
             break;
+          case 'ping':
+            // Keep-alive received, respond with pong
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({ type: 'pong' }));
+              } catch {}
+            }
+            break;
         }
       } catch (err) {
         console.error('Failed to parse WebSocket message', err);

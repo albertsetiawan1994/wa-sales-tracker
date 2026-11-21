@@ -95,6 +95,39 @@ export function QrConnectCard({ connectionState, onRefresh, onLogout }: QrConnec
     );
   }
 
+  // If reconnecting an existing session in the background, keep compact banner so board isn't hidden
+  if (status === 'connecting' && !qrCode && userPhone) {
+    return (
+      <div className="bg-slate-800/80 border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg backdrop-blur">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 animate-spin">
+            <RefreshCw className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-white">Menyambungkan Kembali ke WhatsApp...</span>
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Nomor: <span className="font-mono text-amber-300 font-medium">+{userPhone}</span> (Menjaga sinkronisasi tetap aktif)
+            </p>
+          </div>
+        </div>
+
+        {onLogout && (
+          <button
+            onClick={handleLogoutClick}
+            disabled={isBusy}
+            className="text-xs bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 self-start sm:self-center disabled:opacity-50"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Ganti Nomor</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-6 max-w-md mx-auto my-8 shadow-2xl text-center backdrop-blur">
       <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
