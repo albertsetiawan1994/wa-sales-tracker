@@ -12,6 +12,7 @@ interface QrConnectCardProps {
 export function QrConnectCard({ connectionState, onRefresh, onLogout }: QrConnectCardProps) {
   const { status, qrCode, userPhone, lastError } = connectionState;
   const [isBusy, setIsBusy] = useState(false);
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const handleRefreshClick = async () => {
     if (!onRefresh) return;
@@ -25,12 +26,13 @@ export function QrConnectCard({ connectionState, onRefresh, onLogout }: QrConnec
 
   const handleLogoutClick = async () => {
     if (!onLogout) return;
-    const confirm = window.confirm(
-      'Apakah Anda yakin ingin memutuskan nomor WhatsApp yang sedang terhubung dan memindai nomor baru?'
-    );
-    if (!confirm) return;
+    if (!confirmingLogout) {
+      setConfirmingLogout(true);
+      return;
+    }
 
     setIsBusy(true);
+    setConfirmingLogout(false);
     try {
       await onLogout();
     } finally {
@@ -57,15 +59,37 @@ export function QrConnectCard({ connectionState, onRefresh, onLogout }: QrConnec
         </div>
 
         {onLogout && (
-          <button
-            onClick={handleLogoutClick}
-            disabled={isBusy}
-            className="text-xs bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 self-start sm:self-center disabled:opacity-50"
-            title="Putus koneksi nomor ini dan pindai nomor baru"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>{isBusy ? 'Memutuskan...' : 'Putus Koneksi / Ganti Nomor'}</span>
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-center">
+            {confirmingLogout ? (
+              <>
+                <button
+                  onClick={handleLogoutClick}
+                  disabled={isBusy}
+                  className="text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-md disabled:opacity-50 animate-pulse"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{isBusy ? 'Memutuskan...' : 'Konfirmasi Putus Koneksi'}</span>
+                </button>
+                <button
+                  onClick={() => setConfirmingLogout(false)}
+                  disabled={isBusy}
+                  className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2.5 py-1.5 rounded-lg transition"
+                >
+                  Batal
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleLogoutClick}
+                disabled={isBusy}
+                className="text-xs bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 disabled:opacity-50"
+                title="Putus koneksi nomor ini dan pindai nomor baru"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Putus Koneksi / Ganti Nomor</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
     );

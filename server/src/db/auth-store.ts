@@ -4,6 +4,7 @@ import {
   BufferJSON,
   initAuthCreds,
   SignalDataTypeMap,
+  proto,
 } from '@whiskeysockets/baileys';
 import { SupabaseClient } from '@supabase/supabase-js';
 
@@ -64,7 +65,11 @@ export async function useSupabaseAuthState(
             if (rows) {
               for (const row of rows) {
                 const rawId = row.id.replace(`${type}-`, '');
-                data[rawId] = JSON.parse(JSON.stringify(row.session_data), BufferJSON.reviver);
+                let val = JSON.parse(JSON.stringify(row.session_data), BufferJSON.reviver);
+                if (type === 'app-state-sync-key' && val) {
+                  val = proto.Message.AppStateSyncKeyData.fromObject(val);
+                }
+                data[rawId] = val;
               }
             }
           } catch {

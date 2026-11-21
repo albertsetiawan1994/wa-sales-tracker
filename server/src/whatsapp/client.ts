@@ -8,6 +8,8 @@ if (typeof (globalThis as any).WebSocket === 'undefined') {
 import makeWASocket, {
   DisconnectReason,
   WASocket,
+  makeCacheableSignalKeyStore,
+  Browsers,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
@@ -96,10 +98,15 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket | n
     const { state, saveCreds } = await useSupabaseAuthState(supabase);
 
     const sock = makeWASocket({
-      auth: state,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })),
+      },
+      browser: Browsers.ubuntu('Chrome'),
       printQRInTerminal: false,
       logger: pino({ level: 'silent' }),
-      syncFullHistory: false, // Essential: prevents memory exhaustion on Koyeb 512MB RAM
+      syncFullHistory: false,
+      shouldSyncHistoryMessage: () => true,
       generateHighQualityLinkPreview: false,
     });
 
@@ -307,6 +314,50 @@ export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket | n
           for (let i = 0; i < rows.length; i += 50) {
             await supabase.from('contacts').upsert(rows.slice(i, i + 50), { onConflict: 'jid' });
           }
+          events.onMessageReceived({
+            jid: 'sync',
+            senderNumber: 'system',
+            text: 'contacts_synced',
+            fromMe: false,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } catch {}
+    });
+
+    // Handle chats.upsert
+    sock.ev.on('chats.upsert', async (newChats) => {
+      try {
+        const rows: any[] = [];
+        for (const chat of newChats) {
+          const jid = chat.id;
+          if (!jid || !isValidDirectChatJid(jid)) continue;
+          const phone = extractPhoneNumber(jid);
+          const chatTimestamp = chat.conversationTimestamp
+            ? new Date((Number(chat.conversationTimestamp) || Date.now() / 1000) * 1000).toISOString()
+            : new Date().toISOString();
+
+          rows.push({
+            jid,
+            phone_number: phone,
+            name: chat.name || phone,
+            is_customer: false,
+            is_group: false,
+            last_message_at: chatTimestamp,
+            updated_at: new Date().toISOString(),
+          });
+        }
+        if (rows.length > 0) {
+          for (let i = 0; i < rows.length; i += 50) {
+            await supabase.from('contacts').upsert(rows.slice(i, i + 50), { onConflict: 'jid' });
+          }
+          events.onMessageReceived({
+            jid: 'sync',
+            senderNumber: 'system',
+            text: 'chats_synced',
+            fromMe: false,
+            timestamp: new Date().toISOString(),
+          });
         }
       } catch {}
     });
