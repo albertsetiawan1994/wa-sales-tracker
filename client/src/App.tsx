@@ -274,6 +274,7 @@ export default function App() {
         <LeadDetailDrawer
           key={selectedContact.jid}
           contact={selectedContact}
+          templates={templates}
           onClose={() => setSelectedContact(null)}
           onUpdate={handleUpdateContactDetails}
           onAddReminder={handleAddReminder}

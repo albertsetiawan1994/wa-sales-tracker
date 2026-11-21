@@ -88,6 +88,43 @@ export async function logoutWhatsApp(): Promise<void> {
   }
 }
 
+export async function sendWhatsAppMessage(jid: string, text: string): Promise<any> {
+  if (!socketInstance || currentStatus !== 'connected') {
+    throw new Error('WhatsApp belum terhubung. Silakan hubungkan WhatsApp terlebih dahulu.');
+  }
+
+  let targetJid = jid;
+  if (!targetJid.includes('@')) {
+    targetJid = `${targetJid.replace(/\D/g, '')}@s.whatsapp.net`;
+  }
+
+  const result = await socketInstance.sendMessage(targetJid, { text });
+
+  const supabase = getSupabaseClient();
+  const timestamp = new Date().toISOString();
+  await supabase
+    .from('contacts')
+    .update({
+      last_message_text: text,
+      last_message_at: timestamp,
+      last_sender_is_me: true,
+      updated_at: timestamp,
+    })
+    .eq('jid', targetJid);
+
+  if (registeredEvents) {
+    registeredEvents.onMessageReceived({
+      jid: targetJid,
+      senderNumber: extractPhoneNumber(targetJid),
+      text,
+      fromMe: true,
+      timestamp,
+    });
+  }
+
+  return result;
+}
+
 export async function initWhatsApp(events: WhatsAppEvents): Promise<WASocket | null> {
   registeredEvents = events;
   currentStatus = 'connecting';

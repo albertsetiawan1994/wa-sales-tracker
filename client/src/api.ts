@@ -88,6 +88,19 @@ export async function updateContact(jid: string, updates: Partial<Contact>): Pro
   return res.json();
 }
 
+export async function sendWhatsAppMessage(jid: string, text: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/contacts/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ text }),
+  });
+  handleAuthError(res);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Gagal mengirim pesan via WhatsApp');
+  }
+}
+
 export async function fetchQuickReplies(): Promise<QuickReply[]> {
   const res = await fetch(`${API_BASE}/quick-replies`, { headers: getHeaders() });
   handleAuthError(res);

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getSupabaseClient } from '../db/supabase.js';
 import { computeSlaStatus } from '../whatsapp/status-engine.js';
 import { broadcastEvent } from '../ws/gateway.js';
+import { sendWhatsAppMessage } from '../whatsapp/client.js';
 
 export const contactsRouter = Router();
 
@@ -94,5 +95,23 @@ contactsRouter.patch('/:jid', async (req: Request, res: Response) => {
     res.json(enriched);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Send WhatsApp message directly from web dashboard
+contactsRouter.post('/:jid/messages', async (req: Request, res: Response) => {
+  const jid = String(req.params.jid);
+  const { text } = req.body;
+
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    res.status(400).json({ error: 'Isi pesan tidak boleh kosong' });
+    return;
+  }
+
+  try {
+    await sendWhatsAppMessage(jid, text.trim());
+    res.json({ ok: true, message: 'Pesan berhasil dikirim via WhatsApp' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Gagal mengirim pesan via WhatsApp' });
   }
 });
