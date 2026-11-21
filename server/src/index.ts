@@ -6,7 +6,7 @@ import { createAuthMiddleware } from './routes/auth.js';
 import { contactsRouter } from './routes/contacts.js';
 import { templatesRouter } from './routes/templates.js';
 import { initWebSocketServer, broadcastEvent } from './ws/gateway.js';
-import { initWhatsApp, getWhatsAppState } from './whatsapp/client.js';
+import { initWhatsApp, getWhatsAppState, restartWhatsApp } from './whatsapp/client.js';
 
 dotenv.config();
 
@@ -23,6 +23,15 @@ app.get('/health', (_req, res) => {
 
 app.get('/api/status', (_req, res) => {
   res.json(getWhatsAppState());
+});
+
+app.post('/api/reconnect', async (_req, res) => {
+  try {
+    await restartWhatsApp();
+    res.json({ ok: true, state: getWhatsAppState() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Protected routes (Master PIN)

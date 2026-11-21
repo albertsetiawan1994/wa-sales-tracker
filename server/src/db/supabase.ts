@@ -38,6 +38,11 @@ export interface QuickReplyRow {
   created_at: string;
 }
 
+export function sanitizeSupabaseUrl(url: string): string {
+  if (!url) return '';
+  return url.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+}
+
 let supabaseInstance: SupabaseClient<any> | null = null;
 
 export function getSupabaseClient(): SupabaseClient<any> {
@@ -45,8 +50,9 @@ export function getSupabaseClient(): SupabaseClient<any> {
     return supabaseInstance;
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://mock-supabase.supabase.co';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'mock-key';
+  const rawUrl = process.env.SUPABASE_URL || 'https://mock-supabase.supabase.co';
+  const supabaseUrl = sanitizeSupabaseUrl(rawUrl);
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || 'mock-key').trim();
 
   supabaseInstance = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },

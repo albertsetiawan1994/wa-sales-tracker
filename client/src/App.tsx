@@ -9,7 +9,14 @@ import { TriageInbox } from './components/TriageInbox.js';
 import { LeadDetailDrawer } from './components/LeadDetailDrawer.js';
 import { QuickReplyDrawer } from './components/QuickReplyDrawer.js';
 import { PinLockModal } from './components/PinLockModal.js';
-import { fetchQuickReplies, createQuickReply, createReminder, getStoredPin } from './api.js';
+import {
+  fetchQuickReplies,
+  createQuickReply,
+  createReminder,
+  getStoredPin,
+  fetchConnectionStatus,
+  triggerReconnect,
+} from './api.js';
 import { Contact, QuickReply, PipelineStage } from './types.js';
 
 export default function App() {
@@ -45,7 +52,8 @@ export default function App() {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Real-time WebSocket connection
-  const { connectionState } = useSocket({
+  const { connectionState, setConnectionState } = useSocket({
+    isUnlocked,
     onContactUpdated: (contact) => {
       handleCustomerSocketUpdate(contact);
       handleTriageSocketUpdate(contact);
@@ -60,6 +68,40 @@ export default function App() {
       }, 500);
     },
   });
+
+  // Polling fallback: while not connected, query /api/status every 3.5s
+  useEffect(() => {
+    if (connectionState.status === 'connected') return;
+
+    let isMounted = true;
+    const pollStatus = async () => {
+      try {
+        const state = await fetchConnectionStatus();
+        if (isMounted) {
+          setConnectionState((prev) => {
+            if (
+              prev.status !== state.status ||
+              prev.qrCode !== state.qrCode ||
+              prev.userPhone !== state.userPhone ||
+              prev.lastError?.message !== state.lastError?.message
+            ) {
+              return state;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // Silently ignore polling network errors
+      }
+    };
+
+    pollStatus();
+    const interval = setInterval(pollStatus, 3500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [connectionState.status, setConnectionState]);
 
   // Check initial PIN and listen for auth error events
   useEffect(() => {
@@ -168,7 +210,12 @@ export default function App() {
         {/* WhatsApp QR / Connection Status Banner */}
         <QrConnectCard
           connectionState={connectionState}
-          onRefresh={() => {
+          onRefresh={async () => {
+            await triggerReconnect();
+            try {
+              const state = await fetchConnectionStatus();
+              setConnectionState(state);
+            } catch {}
             refreshCustomers();
             refreshTriage();
           }}

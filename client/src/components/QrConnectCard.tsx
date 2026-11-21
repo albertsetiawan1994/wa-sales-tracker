@@ -1,15 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { QrCode, CheckCircle, Smartphone, AlertCircle, RefreshCw } from 'lucide-react';
 import { WhatsAppConnectionState } from '../types.js';
 
 interface QrConnectCardProps {
   connectionState: WhatsAppConnectionState;
-  onRefresh?: () => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 export function QrConnectCard({ connectionState, onRefresh }: QrConnectCardProps) {
-  const { status, qrCode, userPhone } = connectionState;
+  const { status, qrCode, userPhone, lastError } = connectionState;
+  const [isBusy, setIsBusy] = useState(false);
+
+  const handleRefreshClick = async () => {
+    if (!onRefresh) return;
+    setIsBusy(true);
+    try {
+      await onRefresh();
+    } finally {
+      setTimeout(() => setIsBusy(false), 800);
+    }
+  };
 
   if (status === 'connected') {
     return (
@@ -40,19 +51,31 @@ export function QrConnectCard({ connectionState, onRefresh }: QrConnectCardProps
 
       <h2 className="text-xl font-bold text-white mb-2">Hubungkan WhatsApp Anda</h2>
       <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-        Buka WhatsApp di HP Anda $\rightarrow$ ketuk <b>Perangkat Tertaut</b> $\rightarrow$ pindai kode QR di bawah untuk menghubungkan aplikasi sales tracker.
+        Buka WhatsApp di HP Anda → ketuk <b>Perangkat Tertaut</b> → pindai kode QR di bawah untuk menghubungkan aplikasi sales tracker.
       </p>
 
       <div className="bg-white p-4 rounded-xl inline-block shadow-inner mb-6">
         {qrCode ? (
           <QRCodeSVG value={qrCode} size={220} level="M" />
         ) : (
-          <div className="w-[220px] h-[220px] flex flex-col items-center justify-center bg-slate-100 rounded-lg text-slate-500 gap-2">
-            <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
-            <span className="text-xs font-medium">Membuat Kode QR...</span>
+          <div className="w-[220px] h-[220px] flex flex-col items-center justify-center bg-slate-100 rounded-lg text-slate-500 gap-3 p-4">
+            <RefreshCw className={`w-8 h-8 text-emerald-600 ${isBusy ? 'animate-spin' : 'animate-spin'}`} />
+            <span className="text-xs font-medium text-slate-700">
+              {status === 'connecting' ? 'Membuat Kode QR...' : 'Menghubungkan ke Server...'}
+            </span>
+            <span className="text-[11px] text-slate-400 text-center leading-tight">
+              Menunggu respon dari WhatsApp socket
+            </span>
           </div>
         )}
       </div>
+
+      {lastError && (
+        <div className="mb-4 text-xs text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded-lg p-2.5 flex items-center gap-2 text-left">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-400" />
+          <span className="truncate">{lastError.message || 'Koneksi terputus, mencoba menyambungkan ulang...'}</span>
+        </div>
+      )}
 
       <div className="flex items-center justify-center gap-2 text-xs text-slate-400 bg-slate-900/60 py-2.5 px-4 rounded-lg border border-slate-700/50 mb-4">
         <Smartphone className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -61,11 +84,12 @@ export function QrConnectCard({ connectionState, onRefresh }: QrConnectCardProps
 
       {onRefresh && (
         <button
-          onClick={onRefresh}
-          className="text-xs text-slate-400 hover:text-white transition flex items-center gap-1.5 mx-auto"
+          onClick={handleRefreshClick}
+          disabled={isBusy}
+          className="text-xs bg-slate-700/60 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-lg transition flex items-center gap-2 mx-auto border border-slate-600/50 disabled:opacity-50"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Muat Ulang Kode QR
+          <RefreshCw className={`w-3.5 h-3.5 ${isBusy ? 'animate-spin' : ''}`} />
+          <span>{isBusy ? 'Menyambungkan...' : 'Muat Ulang / Buat Kode QR Baru'}</span>
         </button>
       )}
     </div>

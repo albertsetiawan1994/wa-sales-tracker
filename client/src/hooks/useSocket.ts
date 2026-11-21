@@ -1,18 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { WhatsAppConnectionState, Contact } from '../types.js';
 import { getStoredPin } from '../api.js';
 
 interface UseSocketOptions {
+  isUnlocked?: boolean;
   onContactUpdated?: (contact: Contact) => void;
   onMessageReceived?: (data: any) => void;
 }
 
 export function useSocket(options?: UseSocketOptions) {
   const [connectionState, setConnectionState] = useState<WhatsAppConnectionState>({
-    status: 'disconnected',
+    status: 'connecting',
     qrCode: null,
     userPhone: null,
   });
+
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  const isUnlocked = options?.isUnlocked ?? false;
 
   const connect = useCallback(() => {
     let wsUrl: string;
@@ -30,9 +36,13 @@ export function useSocket(options?: UseSocketOptions) {
     }
 
     let ws: WebSocket | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isClosedIntentionally = false;
+
     try {
       ws = new WebSocket(wsUrl);
-    } catch {
+    } catch (err) {
+      console.warn('Failed to create WebSocket instance', err);
       return () => {};
     }
 
@@ -44,7 +54,12 @@ export function useSocket(options?: UseSocketOptions) {
             setConnectionState(payload.data);
             break;
           case 'qr_code':
-            setConnectionState((prev) => ({ ...prev, qrCode: payload.data.qrCode }));
+            setConnectionState((prev) => ({
+              ...prev,
+              status: 'connecting',
+              qrCode: payload.data.qrCode,
+              lastError: null,
+            }));
             break;
           case 'status_change':
             setConnectionState((prev) => ({
@@ -55,10 +70,10 @@ export function useSocket(options?: UseSocketOptions) {
             }));
             break;
           case 'contact_updated':
-            options?.onContactUpdated?.(payload.data);
+            optionsRef.current?.onContactUpdated?.(payload.data);
             break;
           case 'message_received':
-            options?.onMessageReceived?.(payload.data);
+            optionsRef.current?.onMessageReceived?.(payload.data);
             break;
         }
       } catch (err) {
@@ -67,20 +82,26 @@ export function useSocket(options?: UseSocketOptions) {
     };
 
     ws.onclose = () => {
-      setTimeout(connect, 3000);
+      if (!isClosedIntentionally) {
+        reconnectTimeout = setTimeout(connect, 3000);
+      }
     };
 
     return () => {
+      isClosedIntentionally = true;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
       if (ws) {
         ws.close();
       }
     };
-  }, [options]);
+  }, []);
 
   useEffect(() => {
     const cleanup = connect();
     return cleanup;
-  }, [connect]);
+  }, [connect, isUnlocked]);
 
-  return { connectionState };
+  return { connectionState, setConnectionState };
 }

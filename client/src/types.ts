@@ -42,4 +42,9 @@ export interface WhatsAppConnectionState {
   status: 'connecting' | 'connected' | 'disconnected';
   qrCode: string | null;
   userPhone: string | null;
+  lastError?: {
+    statusCode?: number;
+    message?: string;
+    time?: string;
+  } | null;
 }

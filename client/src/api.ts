@@ -41,6 +41,12 @@ export async function fetchConnectionStatus(): Promise<WhatsAppConnectionState> 
   return res.json();
 }
 
+export async function triggerReconnect(): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/reconnect`, { method: 'POST', headers: getHeaders() });
+  } catch {}
+}
+
 export async function fetchContacts(params?: {
   is_customer?: boolean;
   pipeline_stage?: string;
