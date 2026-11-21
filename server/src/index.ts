@@ -18,7 +18,11 @@ app.use(express.json());
 
 // Public health check and connection status
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    version: '1.0.1',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get('/api/status', (_req, res) => {
