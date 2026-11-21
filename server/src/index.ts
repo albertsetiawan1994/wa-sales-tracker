@@ -1,3 +1,10 @@
+import WebSocket from 'ws';
+
+// Ensure global WebSocket is available across Node runtimes
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = WebSocket;
+}
+
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
@@ -20,7 +27,7 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
-    version: '1.0.1',
+    version: '1.0.2',
     timestamp: new Date().toISOString(),
   });
 });

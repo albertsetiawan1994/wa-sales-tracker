@@ -1,3 +1,10 @@
+import WebSocket from 'ws';
+
+// Ensure global WebSocket is available for Baileys
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = WebSocket;
+}
+
 import makeWASocket, {
   DisconnectReason,
   WASocket,

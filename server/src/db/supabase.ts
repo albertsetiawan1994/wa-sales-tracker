@@ -1,5 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 import dotenv from 'dotenv';
+
+// Ensure global WebSocket is available in Node runtimes (required by Supabase & Baileys)
+if (typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = WebSocket;
+}
 
 dotenv.config();
 
@@ -56,6 +62,9 @@ export function getSupabaseClient(): SupabaseClient<any> {
 
   supabaseInstance = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
+    realtime: {
+      transport: WebSocket as any,
+    },
   });
 
   return supabaseInstance;
