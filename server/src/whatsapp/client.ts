@@ -93,10 +93,11 @@ export async function sendWhatsAppMessage(jid: string, text: string): Promise<an
     throw new Error('WhatsApp belum terhubung. Silakan hubungkan WhatsApp terlebih dahulu.');
   }
 
-  let targetJid = jid;
-  if (!targetJid.includes('@')) {
-    targetJid = `${targetJid.replace(/\D/g, '')}@s.whatsapp.net`;
+  const phone = extractPhoneNumber(jid);
+  if (!phone) {
+    throw new Error('Nomor tujuan WhatsApp tidak valid.');
   }
+  const targetJid = `${phone}@s.whatsapp.net`;
 
   const result = await socketInstance.sendMessage(targetJid, { text });
 
@@ -110,12 +111,12 @@ export async function sendWhatsAppMessage(jid: string, text: string): Promise<an
       last_sender_is_me: true,
       updated_at: timestamp,
     })
-    .eq('jid', targetJid);
+    .or(`jid.eq.${targetJid},jid.eq.${jid}`);
 
   if (registeredEvents) {
     registeredEvents.onMessageReceived({
       jid: targetJid,
-      senderNumber: extractPhoneNumber(targetJid),
+      senderNumber: phone,
       text,
       fromMe: true,
       timestamp,

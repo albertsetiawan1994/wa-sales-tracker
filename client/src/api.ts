@@ -96,6 +96,9 @@ export async function sendWhatsAppMessage(jid: string, text: string): Promise<vo
   });
   handleAuthError(res);
   if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error('Server di Render belum selesai deploy. Silakan klik "Manual Deploy > Deploy latest commit" di dashboard.render.com.');
+    }
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || 'Gagal mengirim pesan via WhatsApp');
   }
